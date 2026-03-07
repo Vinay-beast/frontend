@@ -1,0 +1,370 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS variables (beige / light theme) ── */
+:root {
+    --brand-dark: 250 247 242;
+    /* warm cream — page background    */
+    --brand-panel: 255 255 255;
+    /* pure white  — cards & panels    */
+    --brand-soft: 243 238 230;
+    /* soft sand   — tinted surfaces   */
+}
+
+@layer base {
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        background-color: rgb(var(--brand-dark));
+        color: #2a1f14;
+        font-family: 'Inter', sans-serif;
+        min-height: 100vh;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        font-family: 'Inter', sans-serif;
+        color: #1a1208;
+    }
+
+    input,
+    textarea,
+    select {
+        @apply bg-white border border-black/10 rounded-lg px-3 py-2 w-full outline-none transition-colors;
+        color: #2a1f14;
+        font-family: 'Inter', sans-serif;
+    }
+
+    button {
+        font-family: 'Inter', sans-serif;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+        border-color: rgba(160, 120, 48, 0.55);
+    }
+
+    select option {
+        background: #ffffff;
+        color: #2a1f14;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: rgba(42, 31, 20, 0.38);
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply px-4 py-2 bg-gradient-to-r from-[#a07830] to-[#8a6520] font-semibold rounded-lg hover:from-[#8a6520] hover:to-[#7a5518] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+        color: #ffffff !important;
+    }
+
+    .btn-secondary {
+        @apply px-4 py-2 bg-black/5 border border-black/10 rounded-lg hover:bg-black/10 transition-all active:scale-95 disabled:opacity-50;
+        color: #2a1f14;
+    }
+
+    .btn-ghost {
+        @apply px-4 py-2 border rounded-lg hover:bg-[#a07830]/10 transition-all active:scale-95;
+        color: #a07830;
+        border-color: rgba(160, 120, 48, 0.30);
+    }
+
+    .btn-danger {
+        @apply px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg hover:bg-red-100 transition-all;
+    }
+
+    .card {
+        @apply bg-white border border-black/[0.07] rounded-xl p-5 transition-all shadow-sm;
+    }
+
+    .card:hover {
+        border-color: rgba(160, 120, 48, 0.22);
+    }
+
+    .panel {
+        @apply bg-white border border-black/[0.07] rounded-2xl p-6 shadow-sm;
+    }
+
+    .tag {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-black/[0.06];
+        color: #7a6550;
+    }
+
+    .tag-gold {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+        background-color: rgba(160, 120, 48, 0.14);
+        color: #a07830;
+    }
+
+    .badge-dot {
+        @apply w-2 h-2 rounded-full inline-block;
+        background-color: #a07830;
+    }
+
+    .price-text {
+        @apply font-bold font-display;
+        color: #a07830;
+    }
+
+    .section-title {
+        @apply font-display text-xl font-semibold;
+        color: #2a1f14;
+    }
+
+    .muted {
+        @apply text-sm;
+        color: #8a7560;
+    }
+}
+
+/* Book cover image */
+.book-cover-bg {
+    background-size: cover;
+    background-position: center;
+    background-color: #f0ebe0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f0ebe0;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c8b89a;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a07830;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+    @apply fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* Star rating */
+.star {
+    cursor: pointer;
+    color: #c8b89a;
+    font-size: 1.4rem;
+    transition: color 0.15s;
+}
+
+.star.filled,
+.star.hover {
+    color: #a07830;
+}
+
+/* Reading progress bar */
+.progress-track {
+    @apply w-full h-1 rounded-full overflow-hidden;
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+.progress-fill {
+    @apply h-full rounded-full transition-all;
+    background: linear-gradient(to right, #a07830, #8a6520);
+}
+
+/* PDF reader controls */
+.pdf-reader-ctrl {
+    @apply p-1.5 border rounded-lg text-sm disabled:opacity-40 transition;
+    background-color: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.10);
+    color: rgba(42, 31, 20, 0.60);
+}
+
+.pdf-reader-ctrl:hover:not(:disabled) {
+    background-color: rgba(0, 0, 0, 0.08);
+    color: #2a1f14;
+}
+
+/* Widget floating buttons */
+.widget-btn {
+    @apply w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl cursor-pointer transition-transform hover:scale-110;
+}
+
+/* ── Typewriter reveal animation ── */
+@keyframes typewriter {
+    from {
+        clip-path: inset(0 100% 0 0);
+    }
+
+    to {
+        clip-path: inset(0 0% 0 0);
+    }
+}
+
+.typewriter-text {
+    animation: typewriter 1.6s steps(28, end) 0.5s both;
+}
+
+/* Address form placeholder — visible warm brown on beige bg */
+.addr-input::placeholder {
+    color: rgba(92, 74, 48, 0.50);
+}
+
+/* Catalog sort select option styling */
+select option {
+    background: #faf8f4;
+    color: #2a1f14;
+}
+
+/* ── Animated hero gradient ── */
+@keyframes heroGradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.hero-animated-gradient {
+    background: linear-gradient(135deg, #f5f0e6, #ece3d4, #e8dab8, #f0e4cc, #ead8c8, #e4dcd4, #f0ebe0);
+    background-size: 400% 400%;
+    animation: heroGradientShift 12s ease infinite;
+}
+
+/* ── Shimmer / skeleton loading ── */
+@keyframes shimmer {
+    from {
+        background-position: -200% 0;
+    }
+
+    to {
+        background-position: 200% 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(90deg, #f0ebe0 25%, #e4d9c8 50%, #f0ebe0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton {
+    border-radius: 0.75rem;
+    background: linear-gradient(90deg, #f0ebe0 25%, #e4d9c8 50%, #f0ebe0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ── Transparent-white utility overrides for light background ── */
+/* These make alpha-white Tailwind classes readable on the beige/white bg */
+.text-white {
+    color: #2a1f14;
+}
+
+.text-white\/80 {
+    color: rgba(42, 31, 20, 0.85);
+}
+
+.text-white\/60 {
+    color: rgba(42, 31, 20, 0.65);
+}
+
+.text-white\/50 {
+    color: rgba(42, 31, 20, 0.55);
+}
+
+.text-white\/40 {
+    color: rgba(42, 31, 20, 0.45);
+}
+
+.text-white\/30 {
+    color: rgba(42, 31, 20, 0.35);
+}
+
+.text-white\/20 {
+    color: rgba(42, 31, 20, 0.22);
+}
+
+.text-white\/10 {
+    color: rgba(42, 31, 20, 0.12);
+}
+
+.border-white\/5 {
+    border-color: rgba(0, 0, 0, 0.06);
+}
+
+.border-white\/10 {
+    border-color: rgba(0, 0, 0, 0.10);
+}
+
+.border-white\/20 {
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
+.border-white\/\[0\.07\] {
+    border-color: rgba(0, 0, 0, 0.07);
+}
+
+.bg-white\/5 {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.bg-white\/10 {
+    background-color: rgba(0, 0, 0, 0.07);
+}
+
+.bg-white\/20 {
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+.hover\:bg-white\/5:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.hover\:bg-white\/10:hover {
+    background-color: rgba(0, 0, 0, 0.07);
+}
+
+.hover\:text-white:hover {
+    color: #1a1208;
+}
+
+.bg-black\/30 {
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+.bg-black\/60 {
+    background-color: rgba(0, 0, 0, 0.20);
+}
+
+.bg-black\/70 {
+    background-color: rgba(0, 0, 0, 0.22);
+}
+
+.bg-black\/80 {
+    background-color: rgba(0, 0, 0, 0.28);
+}
+
+.shadow-black\/50 {
+    --tw-shadow-color: rgba(180, 150, 120, 0.25);
+}
+
+.shadow-black\/40 {
+    --tw-shadow-color: rgba(180, 150, 120, 0.20);
+}
