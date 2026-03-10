@@ -14,6 +14,7 @@ export default function ResolutionWidget() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [simulating, setSimulating] = useState(false);
+    const [resolving, setResolving] = useState(null);
     const [issues, setIssues] = useState([]);
     const [issuesLoading, setIssuesLoading] = useState(false);
     const endRef = useRef(null);
@@ -54,11 +55,13 @@ export default function ResolutionWidget() {
     }
 
     async function handleResolve(orderId) {
+        setResolving(orderId);
         try {
             await resolvePayment(token, orderId);
             toast.success('Payment issue resolved');
             loadIssues();
         } catch (e) { toast.error(e.message || 'Failed to resolve'); }
+        finally { setResolving(null); }
     }
 
     async function handleSimulate() {
@@ -217,9 +220,10 @@ export default function ResolutionWidget() {
                                                 {issue.status !== 'resolved' && (
                                                     <button
                                                         onClick={() => handleResolve(issue.order_id || issue.id)}
-                                                        className="text-xs bg-green-500/20 text-green-400 hover:bg-green-500/30 transition px-2 py-1 rounded-lg flex-shrink-0"
+                                                        disabled={resolving === (issue.order_id || issue.id)}
+                                                        className="text-xs bg-green-500/20 text-green-400 hover:bg-green-500/30 transition px-2 py-1 rounded-lg flex-shrink-0 disabled:opacity-60"
                                                     >
-                                                        Resolve
+                                                        {resolving === (issue.order_id || issue.id) ? '⏳ Resolving…' : 'Resolve'}
                                                     </button>
                                                 )}
                                             </div>

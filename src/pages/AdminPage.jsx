@@ -144,6 +144,7 @@ function BookFormModal({ book, onClose, onSave }) {
         stock: book?.stock || '', description: book?.description || '', image_url: book?.image_url || ''
     });
     const [coverFile, setCoverFile] = useState(null);
+    const [pdfFile, setPdfFile] = useState(null);
     const [loading, setLoading] = useState(false);
     const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -157,6 +158,9 @@ function BookFormModal({ book, onClose, onSave }) {
             const bookId = saved?.id || saved?.book_id || book?.id;
             if (coverFile && bookId) {
                 await uploadBookCover(token, bookId, coverFile).catch(() => { });
+            }
+            if (pdfFile && bookId) {
+                await uploadBookContent(token, bookId, pdfFile).catch(() => { });
             }
             toast.success(book?.id ? 'Book updated' : 'Book created');
             onSave?.();
@@ -195,6 +199,12 @@ function BookFormModal({ book, onClose, onSave }) {
                     <div>
                         <label className="block text-xs text-muted mb-1">Upload Cover Image</label>
                         <input type="file" accept="image/*" onChange={e => setCoverFile(e.target.files?.[0])}
+                            className="text-xs text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-brand-gold/20 file:text-brand-gold cursor-pointer"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs text-muted mb-1">Upload PDF (Book Content)</label>
+                        <input type="file" accept="application/pdf" onChange={e => setPdfFile(e.target.files?.[0])}
                             className="text-xs text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-brand-gold/20 file:text-brand-gold cursor-pointer"
                         />
                     </div>

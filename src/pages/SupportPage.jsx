@@ -19,6 +19,7 @@ export default function SupportPage() {
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [simulating, setSimulating] = useState(false);
+    const [resolving, setResolving] = useState(null); // orderId being resolved
     const [issues, setIssues] = useState([]);
     const [issuesLoading, setIssuesLoading] = useState(false);
     const endRef = useRef(null);
@@ -59,11 +60,13 @@ export default function SupportPage() {
     }
 
     async function handleResolve(orderId) {
+        setResolving(orderId);
         try {
             await resolvePayment(token, orderId);
             toast.success('Payment issue resolved');
             loadIssues();
         } catch (e) { toast.error(e.message || 'Failed to resolve'); }
+        finally { setResolving(null); }
     }
 
     async function handleSimulate() {
@@ -155,10 +158,11 @@ export default function SupportPage() {
                                                         navigate('/catalog');
                                                     }
                                                 }}
-                                                className="mt-2 block w-full text-center rounded-lg px-2 py-1 text-xs transition"
+                                                disabled={resolving === m.action.orderId}
+                                                className="mt-2 block w-full text-center rounded-lg px-2 py-1 text-xs transition disabled:opacity-60"
                                                 style={{ background: 'rgba(160,120,48,0.12)', color: '#a07830', border: '1px solid rgba(160,120,48,0.20)' }}
                                             >
-                                                {m.action.label || 'Browse & Order'}
+                                                {resolving === m.action.orderId ? '⏳ Resolving…' : (m.action.label || 'Browse & Order')}
                                             </button>
                                         )}
                                     </div>
@@ -272,17 +276,18 @@ export default function SupportPage() {
                                     <div key={issue.id || i} className="p-3 rounded-xl" style={{ background: '#faf8f4', border: '1px solid rgba(0,0,0,0.07)' }}>
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0">
-                                                <p className="text-xs font-medium truncate" style={{ color: '#1a1208' }}>Order #{issue.order_id || issue.id}</p>
+                                                <p className="text-xs font-medium truncate" style={{ color: '#1a1208' }}>Order #{issue.user_order_number || issue.order_id || issue.id}</p>
                                                 <p className="text-xs mt-0.5 truncate" style={{ color: '#8a7560' }}>{issue.description || issue.reason || 'Payment failure'}</p>
                                                 <p className="text-xs font-medium mt-1 capitalize" style={{ color: statusColor(issue.status) }}>{issue.status || 'pending'}</p>
                                             </div>
                                             {issue.status !== 'resolved' && (
                                                 <button
                                                     onClick={() => handleResolve(issue.order_id || issue.id)}
-                                                    className="text-xs px-2 py-1 rounded-lg flex-shrink-0 transition hover:opacity-80"
+                                                    disabled={resolving === (issue.order_id || issue.id)}
+                                                    className="text-xs px-2 py-1 rounded-lg flex-shrink-0 transition hover:opacity-80 disabled:opacity-60"
                                                     style={{ background: 'rgba(22,163,74,0.10)', color: '#16a34a', border: '1px solid rgba(22,163,74,0.22)' }}
                                                 >
-                                                    Resolve
+                                                    {resolving === (issue.order_id || issue.id) ? '⏳ Resolving…' : 'Resolve'}
                                                 </button>
                                             )}
                                         </div>

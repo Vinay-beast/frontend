@@ -19,6 +19,7 @@ export default function ShoppingAgentWidget() {
         e.preventDefault();
         if (!query.trim()) return;
         setLoading(true);
+        setQuery('');
         setResult(null);
         setOrdered(false);
         try {
