@@ -81,7 +81,7 @@ export default function ReaderModal() {
             .then(data => {
                 if (!data?.readingUrl && !data?.title) { toast.error(data?.message || 'No reading access'); closeReader(); return; }
                 // Use backend proxy to avoid Azure CORS issues
-                setPdfUrl(`/api/secure-reader/${readerBookId}?token=${encodeURIComponent(token)}`);
+                setPdfUrl(`${import.meta.env.VITE_API_URL ?? '/api'}/secure-reader/${readerBookId}?token=${encodeURIComponent(token)}`);
                 setBookTitle(data.title || '');
                 // Restore progress
                 return getBookProgress(token, readerBookId).then(p => {

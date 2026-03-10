@@ -153,7 +153,8 @@ export default function OrdersPage() {
     const filters = ['all', 'pending', 'delivered', 'cancelled'];
     // Sort newest-first so latest order shows at top
     const sortedOrders = [...orders].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    const numberedOrders = sortedOrders.map((o, i) => ({ ...o, _displayNum: i + 1 }));
+    const total = sortedOrders.length;
+    const numberedOrders = sortedOrders.map((o, i) => ({ ...o, _displayNum: total - i }));
     const filtered = filter === 'all' ? numberedOrders : numberedOrders.filter(o => (o.status || '').toLowerCase() === filter);
 
     return (

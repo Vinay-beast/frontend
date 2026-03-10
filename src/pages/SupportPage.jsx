@@ -18,6 +18,7 @@ export default function SupportPage() {
     const [messages, setMessages] = useState([{ role: 'bot', text: 'Hi! I can help resolve order and payment issues. Describe your problem or use the quick actions below.' }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [simulating, setSimulating] = useState(false);
     const [issues, setIssues] = useState([]);
     const [issuesLoading, setIssuesLoading] = useState(false);
     const endRef = useRef(null);
@@ -35,7 +36,7 @@ export default function SupportPage() {
         setIssuesLoading(true);
         try {
             const res = await getPaymentIssues(token);
-            setIssues(Array.isArray(res) ? res : res?.issues || []);
+            setIssues(Array.isArray(res) ? res : res?.orders || res?.issues || []);
         } catch { } finally { setIssuesLoading(false); }
     }
 
@@ -66,12 +67,14 @@ export default function SupportPage() {
     }
 
     async function handleSimulate() {
+        setSimulating(true);
         try {
             await simulatePaymentFailure(token);
             toast.success('Payment failure simulated — check Issues tab');
             setTab('issues');
             loadIssues();
         } catch (e) { toast.error(e.message || 'Simulation failed'); }
+        finally { setSimulating(false); }
     }
 
     function handleKey(e) {
@@ -97,10 +100,7 @@ export default function SupportPage() {
                     </div>
                     <div className="flex-1">
                         <p className="text-sm font-semibold" style={{ color: '#1a1208' }}>Resolution Agent</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-                            <span className="text-xs" style={{ color: '#16a34a' }}>4 Agents Ready</span>
-                        </div>
+
                     </div>
                 </div>
 
@@ -249,10 +249,11 @@ export default function SupportPage() {
                         <div className="px-4 pb-3">
                             <button
                                 onClick={handleSimulate}
-                                className="w-full py-2.5 rounded-xl text-sm font-medium transition hover:opacity-80 flex items-center justify-center gap-2"
+                                disabled={simulating}
+                                className="w-full py-2.5 rounded-xl text-sm font-medium transition hover:opacity-80 flex items-center justify-center gap-2 disabled:opacity-70"
                                 style={{ background: 'rgba(160,120,48,0.08)', border: '1px solid rgba(160,120,48,0.25)', color: '#a07830' }}
                             >
-                                &#9888; Simulate Payment Failure (Demo)
+                                {simulating ? '⏳ Simulating…' : '⚠ Simulate Payment Failure (Demo)'}
                             </button>
                         </div>
 

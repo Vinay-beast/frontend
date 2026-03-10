@@ -14,7 +14,7 @@ const TABS = [
 export default function ProfilePage() {
     const { token, user, setUser } = useStore();
     const [tab, setTab] = useState('profile');
-    const [profile, setProfile] = useState({ name: '', email: '', phone: '', bio: '' });
+    const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', bio: user?.bio || '' });
     const [picLoading, setPicLoading] = useState(false);
     const [saveLoading, setSaveLoading] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', new: '', confirm: '' });
@@ -56,6 +56,7 @@ export default function ProfilePage() {
             const res = await uploadProfilePic(token, file, { name: profile.name, phone: profile.phone });
             const updated = res?.user || res;
             setUser(updated);
+            try { localStorage.setItem('user_cache', JSON.stringify(updated)); } catch { }
             toast.success('Photo updated!');
         } catch (e) { toast.error(e.message || 'Upload failed'); }
         finally { setPicLoading(false); }

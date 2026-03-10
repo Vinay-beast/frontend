@@ -13,6 +13,7 @@ export default function ResolutionWidget() {
     const [messages, setMessages] = useState([{ role: 'bot', text: 'Hi! I can help resolve order and payment issues. Describe your problem or check pending issues below.' }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [simulating, setSimulating] = useState(false);
     const [issues, setIssues] = useState([]);
     const [issuesLoading, setIssuesLoading] = useState(false);
     const endRef = useRef(null);
@@ -30,7 +31,7 @@ export default function ResolutionWidget() {
         setIssuesLoading(true);
         try {
             const res = await getPaymentIssues(token);
-            setIssues(Array.isArray(res) ? res : res?.issues || []);
+            setIssues(Array.isArray(res) ? res : res?.orders || res?.issues || []);
         } catch { } finally { setIssuesLoading(false); }
     }
 
@@ -61,12 +62,14 @@ export default function ResolutionWidget() {
     }
 
     async function handleSimulate() {
+        setSimulating(true);
         try {
             await simulatePaymentFailure(token);
             toast.success('Payment failure simulated — check Issues tab');
             setTab('issues');
             loadIssues();
         } catch (e) { toast.error(e.message || 'Simulation failed'); }
+        finally { setSimulating(false); }
     }
 
     function handleKey(e) {
@@ -119,8 +122,8 @@ export default function ResolutionWidget() {
                                             {m.role === 'user' ? 'U' : 'S'}
                                         </div>
                                         <div className={`max-w-[78%] rounded-xl px-3 py-2 text-xs leading-relaxed ${m.role === 'user'
-                                                ? 'bg-brand-gold/20 text-white rounded-tr-none'
-                                                : 'bg-brand-soft text-white/80 rounded-tl-none'
+                                            ? 'bg-brand-gold/20 text-white rounded-tr-none'
+                                            : 'bg-brand-soft text-white/80 rounded-tl-none'
                                             }`}>
                                             <span dangerouslySetInnerHTML={{ __html: m.text }} />
                                             {m.action && (
@@ -186,8 +189,8 @@ export default function ResolutionWidget() {
                                         <ShoppingBag className="w-3 h-3" /> New Order
                                     </button>
                                     <button onClick={loadIssues} className="pdf-reader-ctrl" title="Refresh"><RefreshCcw className="w-3.5 h-3.5" /></button>
-                                    <button onClick={handleSimulate} className="text-xs text-yellow-400 hover:text-yellow-300 transition px-2 py-1 rounded-lg border border-yellow-400/20 hover:bg-yellow-400/10">
-                                        Simulate Failure
+                                    <button onClick={handleSimulate} disabled={simulating} className="text-xs text-yellow-400 hover:text-yellow-300 transition px-2 py-1 rounded-lg border border-yellow-400/20 hover:bg-yellow-400/10 disabled:opacity-60">
+                                        {simulating ? '⏳ Simulating…' : 'Simulate Failure'}
                                     </button>
                                 </div>
                             </div>

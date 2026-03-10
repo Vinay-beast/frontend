@@ -24,6 +24,7 @@ export default function ShoppingAgentWidget() {
         try {
             const res = await processShoppingQuery(token, query.trim());
             setResult(res);
+            setQuery('');
         } catch (e) {
             toast.error(e.message || 'Shopping agent error');
         } finally {
@@ -46,7 +47,7 @@ export default function ShoppingAgentWidget() {
                 const oid = res?.order?.id || res?.order_id || res?.id;
                 if (!oid) { toast.error('Failed to create order'); setOrdering(false); return; }
                 const paymentOrder = await createRazorpayOrder(token, result.pricing?.total || 0, oid);
-                if (!paymentOrder?.id) { toast.error('Payment order creation failed'); setOrdering(false); return; }
+                if (!paymentOrder?.orderId) { toast.error('Payment order creation failed'); setOrdering(false); return; }
 
                 const options = {
                     key: paymentOrder.key || import.meta.env.VITE_RAZORPAY_KEY || '',
@@ -54,7 +55,7 @@ export default function ShoppingAgentWidget() {
                     currency: paymentOrder.currency || 'INR',
                     name: 'BookNook',
                     description: 'Book order payment',
-                    order_id: paymentOrder.id,
+                    order_id: paymentOrder.orderId,
                     handler: async (response) => {
                         try {
                             await verifyPayment(token, response, oid);

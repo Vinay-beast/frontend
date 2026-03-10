@@ -2,14 +2,14 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Package, Users, BookOpen, BarChart2,
-    Search, Plus, Edit2, Trash2, Upload, RefreshCw, X, Check, Globe, LogOut
+    Search, Plus, Edit2, Trash2, Upload, RefreshCw, X, Check, Globe, LogOut, TrendingUp, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useStore from '../store/useStore';
 import {
     getAdminOrders, getAdminUsers, getBooks, createBookAdmin,
     updateBookAdmin, deleteBookAdmin, searchGoogleBooks, importGoogleBook, bulkImportGoogleBooks,
-    uploadBookCover, uploadBookContent, uploadBookSample
+    uploadBookCover, uploadBookContent, uploadBookSample, updateOrderStatus, deleteUnpaidOrders
 } from '../lib/api';
 import { money, formatDate, debounce } from '../lib/utils';
 
@@ -22,12 +22,116 @@ const TABS = [
 ];
 
 // ---------- Mini stats card ----------
-function StatCard({ label, value, sub }) {
+function StatCard({ label, value, sub, accent }) {
     return (
         <div className="card p-5">
             <p className="text-muted text-sm">{label}</p>
-            <p className="text-white text-3xl font-bold mt-1">{value}</p>
+            <p className="text-3xl font-bold mt-1" style={{ color: accent || '#1a1208' }}>{value}</p>
             {sub && <p className="text-xs text-brand-gold mt-1">{sub}</p>}
+        </div>
+    );
+}
+
+// ---------- Revenue bar chart (SVG-free, CSS bars) ----------
+function RevenueChart({ orders }) {
+    const STATUS_COLORS = { Pending: '#a07830', Delivered: '#22c55e', Cancelled: '#ef4444', Active: '#3b82f6', Completed: '#8b5cf6' };
+    const statuses = Object.keys(STATUS_COLORS);
+    const data = statuses.map(s => ({
+        label: s,
+        value: orders.filter(o => (o.status || 'Pending') === s).reduce((sum, o) => sum + Number(o.total_amount || o.total || 0), 0),
+        color: STATUS_COLORS[s],
+    })).filter(d => d.value > 0);
+    if (data.length === 0) return null;
+    const max = Math.max(...data.map(d => d.value), 1);
+    return (
+        <div className="card p-5">
+            <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Revenue by Status</h3>
+            <div className="flex items-end gap-3 h-28">
+                {data.map(d => (
+                    <div key={d.label} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                        <span className="text-xs text-muted text-center leading-tight" style={{ fontSize: '10px' }}>{money(d.value)}</span>
+                        <div className="w-full rounded-t-md transition-all" style={{ height: `${Math.max((d.value / max) * 80, 4)}px`, backgroundColor: d.color }} />
+                        <span className="text-center text-muted truncate w-full" style={{ fontSize: '9px' }}>{d.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ---------- Order status distribution ----------
+function OrderStatusChart({ orders }) {
+    const STATUS_COLORS = { Pending: '#a07830', Delivered: '#22c55e', Cancelled: '#ef4444', Active: '#3b82f6', Completed: '#8b5cf6' };
+    const data = Object.entries(STATUS_COLORS).map(([label, color]) => ({
+        label, color, count: orders.filter(o => (o.status || 'Pending') === label).length,
+    })).filter(d => d.count > 0);
+    if (data.length === 0) return null;
+    const total = data.reduce((s, d) => s + d.count, 0);
+    return (
+        <div className="card p-5">
+            <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Order Distribution</h3>
+            <div className="space-y-2.5">
+                {data.map(d => (
+                    <div key={d.label} className="flex items-center gap-2">
+                        <span className="text-xs text-muted" style={{ width: 68, textAlign: 'right' }}>{d.label}</span>
+                        <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.15)' }}>
+                            <div className="h-full rounded-full transition-all" style={{ width: `${(d.count / total) * 100}%`, backgroundColor: d.color }} />
+                        </div>
+                        <span className="text-xs font-semibold text-white/80" style={{ width: 24, textAlign: 'right' }}>{d.count}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ---------- Inline status dropdown ----------
+const STATUS_STYLES = {
+    Pending: { color: '#92580a', background: 'rgba(254,243,199,0.9)', borderColor: 'rgba(217,119,6,0.35)' },
+    Delivered: { color: '#15803d', background: 'rgba(220,252,231,0.9)', borderColor: 'rgba(22,163,74,0.35)' },
+    Cancelled: { color: '#b91c1c', background: 'rgba(254,226,226,0.9)', borderColor: 'rgba(239,68,68,0.35)' },
+    Active: { color: '#1d4ed8', background: 'rgba(219,234,254,0.9)', borderColor: 'rgba(59,130,246,0.35)' },
+    Completed: { color: '#7e22ce', background: 'rgba(237,233,254,0.9)', borderColor: 'rgba(139,92,246,0.35)' },
+};
+function StatusBadgeDropdown({ orderId, currentStatus, token, onUpdated }) {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const statuses = Object.keys(STATUS_STYLES);
+    const badge = STATUS_STYLES[currentStatus] || { color: '#5c4a30', background: 'rgba(0,0,0,0.06)', borderColor: 'rgba(0,0,0,0.15)' };
+    async function pick(s) {
+        if (s === currentStatus) { setOpen(false); return; }
+        setLoading(true); setOpen(false);
+        try {
+            await updateOrderStatus(token, orderId, s);
+            onUpdated(orderId, s);
+            toast.success(`Order #${orderId} → ${s}`);
+        } catch (e) { toast.error(e.message || 'Update failed'); }
+        finally { setLoading(false); }
+    }
+    return (
+        <div className="relative">
+            <button disabled={loading} onClick={() => setOpen(o => !o)}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border font-medium transition"
+                style={{ color: badge.color, background: badge.background, borderColor: badge.borderColor, minWidth: '96px', justifyContent: 'space-between' }}>
+                {loading ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" /> : currentStatus}
+                <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+            {open && (
+                <div className="absolute right-0 top-8 z-20 rounded-xl shadow-lg min-w-[130px] py-1 overflow-hidden" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.12)' }}>
+                    {statuses.map(s => {
+                        const st = STATUS_STYLES[s];
+                        return (
+                            <button key={s} onClick={() => pick(s)}
+                                className="w-full text-left px-3 py-1.5 text-xs transition"
+                                style={{ color: s === currentStatus ? st.color : '#2a1f14', fontWeight: s === currentStatus ? 600 : 400, background: s === currentStatus ? st.background : 'transparent' }}
+                                onMouseEnter={e => { if (s !== currentStatus) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                                onMouseLeave={e => { if (s !== currentStatus) e.currentTarget.style.background = 'transparent'; }}>
+                                {s}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
@@ -117,6 +221,10 @@ export default function AdminPage() {
     const [googleLoading, setGoogleLoading] = useState(false);
     const [selectedGoogleBooks, setSelectedGoogleBooks] = useState(new Set());
     const [bulkImporting, setBulkImporting] = useState(false);
+    const [importingAll, setImportingAll] = useState(false);
+    const [orderSearch, setOrderSearch] = useState('');
+    const [orderStatusFilter, setOrderStatusFilter] = useState('all');
+    const [userSearch, setUserSearch] = useState('');
 
     const loadData = useCallback(async (t = tab) => {
         setLoading(true);
@@ -158,6 +266,21 @@ export default function AdminPage() {
         catch (e) { toast.error(e.message || 'Import failed'); }
     }
 
+    async function handleImportAll() {
+        const toImport = googleResults.filter(b => {
+            const gid = b.googleBooksId || b.volumeInfo?.id;
+            return !gid || !books.some(x => x.google_books_id === gid);
+        });
+        if (toImport.length === 0) { toast.error('All books are already in catalog'); return; }
+        setImportingAll(true);
+        try {
+            await bulkImportGoogleBooks(token, toImport);
+            toast.success(`${toImport.length} books imported!`);
+            loadData('books');
+        } catch (e) { toast.error(e.message || 'Import failed'); }
+        finally { setImportingAll(false); }
+    }
+
     async function handleBulkImport() {
         if (selectedGoogleBooks.size === 0) { toast.error('Select books to import'); return; }
         setBulkImporting(true);
@@ -171,8 +294,45 @@ export default function AdminPage() {
         finally { setBulkImporting(false); }
     }
 
+    function handleOrderStatusUpdated(orderId, newStatus) {
+        setOrders(prev => prev.map(o => (o.id || o.order_id) === orderId ? { ...o, status: newStatus } : o));
+    }
+
+    async function handleDeleteUnpaid() {
+        if (!confirm('Delete all unpaid/failed orders and restore their book stock? This cannot be undone.')) return;
+        try {
+            const res = await deleteUnpaidOrders(token);
+            toast.success(`Deleted ${res.deleted} unpaid order${res.deleted !== 1 ? 's' : ''}`);
+            setOrders(prev => prev.filter(o => o.payment_status === 'completed' || !o.payment_status));
+        } catch (e) { toast.error(e.message || 'Failed'); }
+    }
+
+    async function handleDeleteUnpaid() {
+        if (!confirm('Delete all unpaid/failed orders and restore their stock? This cannot be undone.')) return;
+        try {
+            const res = await deleteUnpaidOrders(token);
+            toast.success(`Deleted ${res.deleted} unpaid order${res.deleted !== 1 ? 's' : ''}`);
+            setOrders(prev => prev.filter(o => o.payment_status === 'completed' || !o.payment_status));
+        } catch (e) { toast.error(e.message || 'Failed'); }
+    }
+
     // Dashboard stats
     const revenue = orders.reduce((s, o) => s + Number(o.total_amount || o.total || 0), 0);
+    const pendingCount = orders.filter(o => (o.status || '').toLowerCase() === 'pending').length;
+    const deliveredCount = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
+
+    // Filtered orders & users for tabs
+    const filteredOrders = orders.filter(o => {
+        const matchSearch = !orderSearch || (o.id + '').includes(orderSearch) || (o.user_name || o.email || '').toLowerCase().includes(orderSearch.toLowerCase());
+        let matchStatus = false;
+        if (orderStatusFilter === 'all') matchStatus = true;
+        else if (orderStatusFilter === 'paid') matchStatus = !o.payment_status || o.payment_status === 'completed';
+        else matchStatus = (o.status || '').toLowerCase() === orderStatusFilter.toLowerCase();
+        return matchSearch && matchStatus;
+    });
+    const filteredUsers = users.filter(u => {
+        return !userSearch || (u.name || '').toLowerCase().includes(userSearch.toLowerCase()) || (u.email || '').toLowerCase().includes(userSearch.toLowerCase());
+    });
 
     return (
         <div className="min-h-screen bg-brand-dark flex">
@@ -218,6 +378,12 @@ export default function AdminPage() {
                                 <StatCard label="Total Users" value={users.length || '–'} />
                                 <StatCard label="Revenue" value={money(revenue)} sub="All orders" />
                             </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 -mt-2">
+                                <StatCard label="Pending Orders" value={pendingCount} accent="#a07830" />
+                                <StatCard label="Delivered" value={deliveredCount} accent="#22c55e" />
+                                <StatCard label="Cancelled" value={orders.filter(o => (o.status || '').toLowerCase() === 'cancelled').length} accent="#ef4444" />
+                                <StatCard label="Active Rentals" value={orders.filter(o => (o.status || '').toLowerCase() === 'active').length} accent="#3b82f6" />
+                            </div>
 
                             {/* Quick actions */}
                             <div className="grid grid-cols-3 gap-3">
@@ -233,6 +399,14 @@ export default function AdminPage() {
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Charts */}
+                            {orders.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <RevenueChart orders={orders} />
+                                    <OrderStatusChart orders={orders} />
+                                </div>
+                            )}
 
                             {/* Recent orders */}
                             <div>
@@ -275,36 +449,75 @@ export default function AdminPage() {
 
                     {/* Orders */}
                     {tab === 'orders' && (
-                        <div className="space-y-2">
-                            {orders.map(o => (
-                                <div key={o.id || o.order_id} className="card p-4 flex items-center gap-4 text-sm">
-                                    <div className="flex-1 min-w-0">
-                                        <span className="text-white font-medium">#{o.id || o.order_id}</span>
-                                        <span className="text-muted ml-3">{o.user_name || o.email || 'Customer'}</span>
-                                    </div>
-                                    <span className="tag text-xs">{o.status || 'pending'}</span>
-                                    <span className="text-muted text-xs hidden sm:block">{formatDate(o.created_at)}</span>
-                                    <span className="price-text font-semibold">{money(o.total_amount || o.total || 0)}</span>
+                        <div>
+                            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                                    <input type="text" value={orderSearch} onChange={e => setOrderSearch(e.target.value)}
+                                        className="w-full bg-brand-panel border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-gold/40"
+                                        placeholder="Search by ID or customer…" />
                                 </div>
-                            ))}
-                            {orders.length === 0 && !loading && <p className="text-center text-muted py-12">No orders found</p>}
+                                <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)}
+                                    className="bg-brand-panel border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-brand-gold/40">
+                                    <option value="all">All Orders</option>
+                                    <option value="paid">Paid Only</option>
+                                    {['Pending', 'Delivered', 'Cancelled', 'Active', 'Completed'].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                                <button onClick={handleDeleteUnpaid} className="btn-danger text-xs px-3 py-2 flex-shrink-0 whitespace-nowrap" title="Delete all orders where payment was never completed">
+                                    Delete Unpaid
+                                </button>
+                            </div>
+                            <p className="text-xs text-muted mb-3">{filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}</p>
+                            <div className="space-y-2">
+                                {filteredOrders.map(o => (
+                                    <div key={o.id || o.order_id} className="card p-3 text-sm">
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 100px 80px', alignItems: 'center', gap: '12px' }}>
+                                            <div className="min-w-0">
+                                                <span className="font-medium" style={{ color: '#2a1f14' }}>#{o.id || o.order_id}</span>
+                                                <span className="text-muted ml-2 truncate inline-block max-w-[180px] align-bottom text-xs">{o.user_name || o.email || 'Customer'}</span>
+                                            </div>
+                                            <div>
+                                                <StatusBadgeDropdown orderId={o.id || o.order_id} currentStatus={o.status || 'Pending'} token={token} onUpdated={handleOrderStatusUpdated} />
+                                            </div>
+                                            <span className="text-muted text-xs">{formatDate(o.created_at)}</span>
+                                            <span className="price-text font-semibold text-right">{money(o.total_amount || o.total || 0)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {filteredOrders.length === 0 && !loading && <p className="text-center text-muted py-12">No orders found</p>}
+                            </div>
                         </div>
                     )}
 
                     {/* Users */}
                     {tab === 'users' && (
-                        <div className="space-y-2">
-                            {users.map(u => (
-                                <div key={u.id} className="card p-4 flex items-center gap-4 text-sm">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-white font-medium">{u.name}</p>
-                                        <p className="text-muted text-xs">{u.email}</p>
+                        <div>
+                            <div className="relative mb-4">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                                <input type="text" value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                                    className="w-full bg-brand-panel border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-gold/40"
+                                    placeholder="Search by name or email…" />
+                            </div>
+                            <p className="text-xs text-muted mb-3">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</p>
+                            <div className="space-y-2">
+                                {filteredUsers.map(u => (
+                                    <div key={u.id} className="card p-4 flex items-center gap-4 text-sm">
+                                        <div className="w-8 h-8 rounded-full bg-brand-soft flex-shrink-0 overflow-hidden flex items-center justify-center text-brand-gold font-bold text-sm">
+                                            {u.profile_pic ? <img src={u.profile_pic} alt="" className="w-full h-full object-cover" /> : (u.name || 'U')[0].toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-white font-medium">{u.name}</p>
+                                            <p className="text-muted text-xs">{u.email}{u.phone ? ` · ${u.phone}` : ''}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {u.is_admin && <span className="tag tag-gold text-xs">Admin</span>}
+                                            {u.addresses_count > 0 && <span className="text-xs text-muted">{u.addresses_count} addr</span>}
+                                        </div>
+                                        <span className="text-muted text-xs hidden sm:block">{formatDate(u.created_at)}</span>
                                     </div>
-                                    {u.is_admin && <span className="tag tag-gold text-xs">Admin</span>}
-                                    <span className="text-muted text-xs hidden sm:block">{formatDate(u.created_at)}</span>
-                                </div>
-                            ))}
-                            {users.length === 0 && !loading && <p className="text-center text-muted py-12">No users found</p>}
+                                ))}
+                                {filteredUsers.length === 0 && !loading && <p className="text-center text-muted py-12">No users found</p>}
+                            </div>
                         </div>
                     )}
 
@@ -362,6 +575,18 @@ export default function AdminPage() {
                                             {bulkImporting ? 'Importing…' : 'Import Selected'}
                                         </button>
                                     </div>
+                                </div>
+                            )}
+
+                            {googleResults.length > 0 && !googleLoading && (
+                                <div className="flex justify-end mb-3">
+                                    <button
+                                        onClick={handleImportAll}
+                                        disabled={importingAll}
+                                        className="btn-primary text-xs py-1.5 px-4"
+                                    >
+                                        {importingAll ? 'Importing…' : `Import All (${googleResults.filter(b => { const gid = b.googleBooksId || b.volumeInfo?.id; return !gid || !books.some(x => x.google_books_id === gid); }).length})`}
+                                    </button>
                                 </div>
                             )}
 

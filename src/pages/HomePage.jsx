@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BookOpen, Star, Clock, Gift, Heart, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useStore from '../store/useStore';
-import { getLibrary, getWishlist, getReadingProgress, getMyGifts } from '../lib/api';
+import { getToken, getLibrary, getWishlist, getReadingProgress, getMyGifts } from '../lib/api';
 import { money, formatDate, addDaysISO } from '../lib/utils';
 import BookCard from '../components/BookCard';
 
@@ -73,18 +73,25 @@ export default function HomePage() {
     const [gifts, setGifts] = useState([]);
     const [progress, setProgress] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
 
     const loadAll = useCallback(async () => {
-        if (!token) return;
+        const t = token || getToken();
+        if (!t) { setLoading(false); return; }
         setLoading(true);
+        setLoadError(false);
         try {
             const [lib, wish, prog, giftRes] = await Promise.allSettled([
-                getLibrary(token),
-                getWishlist(token),
-                getReadingProgress(token),
-                getMyGifts(token),
+                getLibrary(t),
+                getWishlist(t),
+                getReadingProgress(t),
+                getMyGifts(t),
             ]);
-            if (lib.status === 'fulfilled') setLibrary(lib.value || { owned: [], rented: [] });
+            if (lib.status === 'fulfilled') {
+                setLibrary(lib.value || { owned: [], rented: [] });
+            } else {
+                setLoadError(true);
+            }
             if (giftRes.status === 'fulfilled') {
                 const claimed = (Array.isArray(giftRes.value) ? giftRes.value : []).filter(g => g.recipient_user_id);
                 setGifts(claimed);
@@ -94,7 +101,7 @@ export default function HomePage() {
                 setStoreWishlist(wishData);   // keep Zustand store in sync so BookCard/BookModal show correct heart state
             }
             if (prog.status === 'fulfilled') setProgress(Array.isArray(prog.value) ? prog.value : []);
-        } catch { }
+        } catch { setLoadError(true); }
         finally { setLoading(false); }
     }, [token]);
 
@@ -131,6 +138,12 @@ export default function HomePage() {
                             <div key={i} className="skeleton" style={{ height: '120px' }} />
                         ))}
                     </div>
+                </div>
+            ) : loadError ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <p style={{ color: '#2a1f14', fontSize: '1.1rem', marginBottom: '0.5rem', fontWeight: 600 }}>Couldn&apos;t load your library</p>
+                    <p style={{ color: '#7a6550', fontSize: '0.875rem', marginBottom: '1.5rem' }}>The server may be warming up (this can take ~30 s on first load). Please retry.</p>
+                    <button onClick={loadAll} className="btn-primary">Retry</button>
                 </div>
             ) : (
                 <>
