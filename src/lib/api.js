@@ -151,6 +151,7 @@ export async function getAdminOrders(token) { return GET('/admin/orders', { toke
 export async function getAdminUsers(token) { return GET('/admin/users', { token }); }
 export async function updateOrderStatus(token, id, status) { return PUT(`/admin/orders/${id}/status`, { status }, { token }); }
 export async function deleteUnpaidOrders(token) { return DEL('/admin/orders/unpaid', { token }); }
+export async function getAdminStats(token) { return GET('/admin/stats', { token }); }
 export async function createBookAdmin(token, payload) { return POST('/admin/books', payload, { token }); }
 export async function updateBookAdmin(token, id, payload) { return PUT(`/admin/books/${id}`, payload, { token }); }
 export async function deleteBookAdmin(token, id) { return DEL(`/admin/books/${id}`, { token }); }

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, Package, Users, BookOpen, BarChart2,
+    LayoutDashboard, Package, Users, BookOpen, BarChart2, AlertTriangle,
     Search, Plus, Edit2, Trash2, Upload, RefreshCw, X, Check, Globe, LogOut, TrendingUp, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useStore from '../store/useStore';
 import {
-    getAdminOrders, getAdminUsers, getBooks, createBookAdmin,
+    getAdminOrders, getAdminUsers, getAdminStats, getBooks, createBookAdmin,
     updateBookAdmin, deleteBookAdmin, searchGoogleBooks, importGoogleBook, bulkImportGoogleBooks,
     uploadBookCover, uploadBookContent, uploadBookSample, updateOrderStatus, deleteUnpaidOrders
 } from '../lib/api';
@@ -45,7 +45,7 @@ function RevenueChart({ orders }) {
     const max = Math.max(...data.map(d => d.value), 1);
     return (
         <div className="card p-5">
-            <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Revenue by Status</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: '#7a6550' }}>Revenue by Status</h3>
             <div className="flex items-end gap-3 h-28">
                 {data.map(d => (
                     <div key={d.label} className="flex-1 flex flex-col items-center gap-1 min-w-0">
@@ -69,7 +69,7 @@ function OrderStatusChart({ orders }) {
     const total = data.reduce((s, d) => s + d.count, 0);
     return (
         <div className="card p-5">
-            <h3 className="text-sm font-semibold text-white/60 uppercase tracking-wider mb-4">Order Distribution</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: '#7a6550' }}>Order Distribution</h3>
             <div className="space-y-2.5">
                 {data.map(d => (
                     <div key={d.label} className="flex items-center gap-2">
@@ -77,7 +77,154 @@ function OrderStatusChart({ orders }) {
                         <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.15)' }}>
                             <div className="h-full rounded-full transition-all" style={{ width: `${(d.count / total) * 100}%`, backgroundColor: d.color }} />
                         </div>
-                        <span className="text-xs font-semibold text-white/80" style={{ width: 24, textAlign: 'right' }}>{d.count}</span>
+                        <span className="text-xs font-semibold" style={{ width: 24, textAlign: 'right', color: '#1a1208' }}>{d.count}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ---------- Revenue 7-day line chart ----------
+function RevenueDailyChart({ data }) {
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0, 10);
+        const label = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()];
+        const found = data?.find(r => r.day?.slice(0, 10) === key);
+        days.push({ label, rev: found ? Number(found.revenue) : 0 });
+    }
+    const W = 280, H = 70, padX = 10, padY = 8;
+    const maxRev = Math.max(...days.map(d => d.rev), 1);
+    const pts = days.map((d, i) => [
+        padX + (i / 6) * (W - 2 * padX),
+        H - padY - (d.rev / maxRev) * (H - 2 * padY),
+    ]);
+    const polyline = pts.map(([x, y]) => `${x},${y}`).join(' ');
+    const area = `M ${pts[0][0]},${H - padY} ${pts.map(([x, y]) => `L ${x},${y}`).join(' ')} L ${pts[6][0]},${H - padY} Z`;
+    const hasData = days.some(d => d.rev > 0);
+    return (
+        <div className="card p-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: '#7a6550' }}>Revenue — Last 7 Days</h3>
+            {!hasData ? (
+                <p className="text-xs text-muted py-6 text-center">No completed orders in last 7 days</p>
+            ) : (
+                <svg width="100%" viewBox={`0 0 ${W} ${H + 18}`} style={{ overflow: 'visible' }}>
+                    <defs>
+                        <linearGradient id="rev-grad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#a07830" stopOpacity="0.28" />
+                            <stop offset="100%" stopColor="#a07830" stopOpacity="0.02" />
+                        </linearGradient>
+                    </defs>
+                    <path d={area} fill="url(#rev-grad)" />
+                    <polyline points={polyline} fill="none" stroke="#a07830" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                    {pts.map(([x, y], i) => days[i].rev > 0 && (
+                        <g key={i}>
+                            <circle cx={x} cy={y} r="3.5" fill="#a07830" stroke="white" strokeWidth="1.5" />
+                            <text x={x} y={y - 7} textAnchor="middle" fontSize="7" fill="#a07830" fontWeight="600">
+                                {days[i].rev >= 1000 ? `₹${(days[i].rev / 1000).toFixed(1)}k` : `₹${Math.round(days[i].rev)}`}
+                            </text>
+                        </g>
+                    ))}
+                    {days.map((d, i) => (
+                        <text key={i} x={pts[i][0]} y={H + 14} textAnchor="middle" fontSize="8.5" fill="rgba(42,31,20,0.50)">{d.label}</text>
+                    ))}
+                </svg>
+            )}
+        </div>
+    );
+}
+
+// ---------- Payment status donut ----------
+function PaymentStatusDonut({ data }) {
+    if (!data || data.length === 0) return null;
+    const total = data.reduce((s, d) => s + Number(d.count), 0);
+    if (total === 0) return null;
+    const r = 38, cx = 55, cy = 55;
+    const C = 2 * Math.PI * r;
+    const COLORS = { completed: '#22c55e', failed: '#ef4444', pending: '#a07830', unknown: '#6b7280' };
+    let cumDeg = -90;
+    return (
+        <div className="card p-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: '#7a6550' }}>Orders by Payment Status</h3>
+            <div className="flex items-center gap-6">
+                <svg width="110" height="110" className="shrink-0">
+                    {data.map((d, i) => {
+                        const frac = Number(d.count) / total;
+                        const startDeg = cumDeg;
+                        cumDeg += frac * 360;
+                        return (
+                            <g key={i} transform={`rotate(${startDeg}, ${cx}, ${cy})`}>
+                                <circle cx={cx} cy={cy} r={r} fill="none"
+                                    stroke={COLORS[d.status] || '#6b7280'}
+                                    strokeWidth="18"
+                                    strokeDasharray={`${frac * C} ${C}`} />
+                            </g>
+                        );
+                    })}
+                    <text x={cx} y={cy - 5} textAnchor="middle" fontSize="16" fontWeight="bold" fill="#1a1208">{total}</text>
+                    <text x={cx} y={cy + 9} textAnchor="middle" fontSize="8" fill="rgba(42,31,20,0.50)">orders</text>
+                </svg>
+                <div className="space-y-1.5 flex-1 min-w-0">
+                    {data.map((d, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[d.status] || '#6b7280' }} />
+                            <span className="capitalize flex-1 truncate" style={{ color: '#5c4a30' }}>{d.status || 'unknown'}</span>
+                            <span className="font-semibold" style={{ color: '#1a1208' }}>{d.count}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ---------- Top 5 best-selling books ----------
+function TopBooksChart({ data }) {
+    if (!data || data.length === 0) return null;
+    const max = Math.max(...data.map(d => Number(d.total_sold)), 1);
+    return (
+        <div className="card p-5">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: '#7a6550' }}>Top 5 Best-Selling Books</h3>
+            <div className="space-y-3">
+                {data.map((d, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                        <span className="text-xs font-bold w-4 shrink-0" style={{ color: '#a07830' }}>#{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs truncate mb-1" style={{ color: '#1a1208' }}>{d.title}</p>
+                            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.25)' }}>
+                                <div className="h-full rounded-full" style={{ width: `${(Number(d.total_sold) / max) * 100}%`, background: 'linear-gradient(90deg, #a07830, #b85c4a)' }} />
+                            </div>
+                        </div>
+                        <span className="text-xs font-semibold shrink-0" style={{ color: '#a07830' }}>{d.total_sold} sold</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ---------- Low stock alerts ----------
+function LowStockPanel({ data }) {
+    if (!data || data.length === 0) return null;
+    return (
+        <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: '#ef4444' }}>
+                <AlertTriangle className="w-3.5 h-3.5" /> Low Stock Alerts ({data.length})
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {data.map(b => (
+                    <div key={b.id} className="card p-3 flex items-center gap-3"
+                        style={{ borderColor: b.stock === 0 ? 'rgba(239,68,68,0.35)' : 'rgba(234,179,8,0.30)' }}>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate" style={{ color: '#1a1208' }}>{b.title}</p>
+                            <p className="text-xs text-muted truncate">{b.author}</p>
+                        </div>
+                        <span className="text-sm font-bold px-2 py-0.5 rounded-lg shrink-0"
+                            style={{ color: b.stock === 0 ? '#ef4444' : '#ca8a04', background: b.stock === 0 ? 'rgba(239,68,68,0.12)' : 'rgba(234,179,8,0.12)' }}>
+                            {b.stock === 0 ? 'Out' : `${b.stock} left`}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -235,6 +382,7 @@ export default function AdminPage() {
     const [orderSearch, setOrderSearch] = useState('');
     const [orderStatusFilter, setOrderStatusFilter] = useState('all');
     const [userSearch, setUserSearch] = useState('');
+    const [stats, setStats] = useState(null);
 
     const loadData = useCallback(async (t = tab) => {
         setLoading(true);
@@ -242,6 +390,7 @@ export default function AdminPage() {
             if (t === 'dashboard' || t === 'orders') { const o = await getAdminOrders(token); setOrders(Array.isArray(o) ? o : (o?.orders || [])); }
             if (t === 'dashboard' || t === 'users') { const u = await getAdminUsers(token); setUsers(Array.isArray(u) ? u : (u?.users || [])); }
             if (t === 'books' || t === 'dashboard') { const b = await getBooks(1, 200); setBooks(b?.books || []); }
+            if (t === 'dashboard') { try { const s = await getAdminStats(token); setStats(s); } catch { } }
         } catch (e) { toast.error(e.message || 'Load failed'); }
         finally { setLoading(false); }
     }, [token, tab]);
@@ -330,6 +479,10 @@ export default function AdminPage() {
     const revenue = orders.reduce((s, o) => s + Number(o.total_amount || o.total || 0), 0);
     const pendingCount = orders.filter(o => (o.status || '').toLowerCase() === 'pending').length;
     const deliveredCount = orders.filter(o => (o.status || '').toLowerCase() === 'delivered').length;
+    const paymentRows = stats?.paymentStatus || [];
+    const paymentTotal = paymentRows.reduce((s, p) => s + Number(p.count), 0);
+    const paymentDone = Number(paymentRows.find(p => p.status === 'completed')?.count || 0);
+    const paymentSuccessRate = paymentTotal ? `${Math.round(paymentDone / paymentTotal * 100)}%` : '–';
 
     // Filtered orders & users for tabs
     const filteredOrders = orders.filter(o => {
@@ -394,6 +547,13 @@ export default function AdminPage() {
                                 <StatCard label="Cancelled" value={orders.filter(o => (o.status || '').toLowerCase() === 'cancelled').length} accent="#ef4444" />
                                 <StatCard label="Active Rentals" value={orders.filter(o => (o.status || '').toLowerCase() === 'active').length} accent="#3b82f6" />
                             </div>
+                            {stats && (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 -mt-2">
+                                    <StatCard label="New Users (7d)" value={stats.newUsersCount ?? '–'} accent="#8b5cf6" />
+                                    <StatCard label="Low Stock Books" value={stats.lowStock?.length ?? '–'} accent="#ef4444" sub={stats.lowStock?.length > 0 ? 'Needs restock' : 'All stocked'} />
+                                    <StatCard label="Payment Success" value={paymentSuccessRate} accent="#22c55e" />
+                                </div>
+                            )}
 
                             {/* Quick actions */}
                             <div className="grid grid-cols-3 gap-3">
@@ -410,13 +570,17 @@ export default function AdminPage() {
                                 ))}
                             </div>
 
-                            {/* Charts */}
-                            {orders.length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <RevenueChart orders={orders} />
-                                    <OrderStatusChart orders={orders} />
-                                </div>
-                            )}
+                            {/* Charts row 1 */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {orders.length > 0 && <RevenueChart orders={orders} />}
+                                {stats?.paymentStatus?.length > 0 && <PaymentStatusDonut data={stats.paymentStatus} />}
+                            </div>
+                            {/* Charts row 2 */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <RevenueDailyChart data={stats?.revenueLast7Days || []} />
+                                {stats?.topBooks?.length > 0 && <TopBooksChart data={stats.topBooks} />}
+                            </div>
+                            {stats?.lowStock?.length > 0 && <LowStockPanel data={stats.lowStock} />}
 
                             {/* Recent orders */}
                             <div>
@@ -425,7 +589,7 @@ export default function AdminPage() {
                                     {orders.slice(0, 5).map(o => (
                                         <div key={o.id || o.order_id} className="card p-3 flex items-center gap-4 text-sm">
                                             <div className="flex-1 min-w-0">
-                                                <span className="text-white font-medium">#{o.id || o.order_id}</span>
+                                                <span className="font-medium" style={{ color: '#1a1208' }}>#{o.id || o.order_id}</span>
                                                 <span className="text-muted ml-3 text-xs">{o.user_name || o.email || 'Customer'}</span>
                                             </div>
                                             <span className="tag text-xs">{o.status || 'pending'}</span>
@@ -444,7 +608,7 @@ export default function AdminPage() {
                                     {users.slice(0, 5).map(u => (
                                         <div key={u.id} className="card p-3 flex items-center gap-4 text-sm">
                                             <div className="flex-1 min-w-0">
-                                                <p className="text-white font-medium">{u.name}</p>
+                                                <p className="font-medium" style={{ color: '#1a1208' }}>{u.name}</p>
                                                 <p className="text-muted text-xs">{u.email}</p>
                                             </div>
                                             {u.is_admin && <span className="tag tag-gold text-xs">Admin</span>}
@@ -454,6 +618,26 @@ export default function AdminPage() {
                                     {users.length === 0 && !loading && <p className="text-muted text-sm py-3 text-center">No users yet</p>}
                                 </div>
                             </div>
+
+                            {/* New users this week */}
+                            {stats?.newUsers?.length > 0 && (
+                                <div>
+                                    <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: '#8b5cf6' }}>
+                                        <Users className="w-3.5 h-3.5" /> New This Week ({stats.newUsers.length})
+                                    </h3>
+                                    <div className="space-y-2">
+                                        {stats.newUsers.map(u => (
+                                            <div key={u.id} className="card p-3 flex items-center gap-4 text-sm" style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium" style={{ color: '#1a1208' }}>{u.name}</p>
+                                                    <p className="text-muted text-xs">{u.email}</p>
+                                                </div>
+                                                <span className="text-xs text-muted hidden sm:block">{formatDate(u.created_at)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
