@@ -93,6 +93,12 @@ const useStore = create((set, get) => ({
     theme: 'dark',
     setTheme(t) { set({ theme: t }); },
 
+    // ---------- Support Page State ----------
+    supportTab: 'chat',
+    setSupportTab(t) { set({ supportTab: t }); },
+    supportMessages: [{ role: 'bot', text: 'Hi! I can help resolve order and payment issues. Describe your problem or use the quick actions below.' }],
+    setSupportMessages(fn) { set(s => ({ supportMessages: typeof fn === 'function' ? fn(s.supportMessages) : fn })); },
+
     // ---------- Global modals / state ----------
     activeBookId: null,     // open in BookModal
     readerBookId: null,     // open in ReaderModal

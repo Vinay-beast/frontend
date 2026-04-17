@@ -162,7 +162,7 @@ export default function OrdersPage() {
             <div className="flex items-center justify-between mb-6">
                 <div>
                     <h1 className="font-display text-3xl font-bold text-white">My Orders</h1>
-                    <p className="text-muted text-sm mt-1">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
+                    <p className="text-muted text-sm mt-1">{loading ? 'Loading...' : `${orders.length} order${orders.length !== 1 ? 's' : ''} total`}</p>
                 </div>
                 <button onClick={loadOrders} disabled={loading} className="p-2 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition disabled:opacity-40">
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />

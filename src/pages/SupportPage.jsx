@@ -12,10 +12,8 @@ const QUICK_ACTIONS = [
 ];
 
 export default function SupportPage() {
-    const { token } = useStore();
+    const { token, supportTab: tab, setSupportTab: setTab, supportMessages: messages, setSupportMessages: setMessages } = useStore();
     const navigate = useNavigate();
-    const [tab, setTab] = useState('chat');
-    const [messages, setMessages] = useState([{ role: 'bot', text: 'Hi! I can help resolve order and payment issues. Describe your problem or use the quick actions below.' }]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [simulating, setSimulating] = useState(false);
