@@ -28,7 +28,9 @@ export default function BookSearchWidget() {
             if (res?.found && res?.result?.book) {
                 // Backend found an exact match in our catalog
                 const b = res.result.book;
-                setResults([{ ...b, cover_image: b.cover_image || b.cover || b.image_url }]);
+                const coverUrl = b.image_url || b.cover ||
+                    (b.google_books_id ? `https://books.google.com/books/content?id=${b.google_books_id}&printsec=frontcover&img=1&zoom=1` : null);
+                setResults([{ ...b, image_url: coverUrl }]);
             } else if (res?.result?.identifiedTitle) {
                 // Identified by AI but not in our catalog
                 toast(`Identified as "${res.result.identifiedTitle}" but not in our catalog`, { icon: '📚' });

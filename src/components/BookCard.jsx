@@ -18,7 +18,7 @@ export default function BookCard({ book, onOpenModal, catalogMode = false }) {
         if (!book?.id || ratingsCache[book.id] !== undefined) return;
         getBulkRatings([book.id])
             .then(res => {
-                const val = res?.[book.id]?.avg ?? res?.[book.id] ?? null;
+                const val = res?.[book.id]?.avgRating ?? res?.[book.id]?.avg ?? null;
                 ratingsCache[book.id] = val;
                 setRating(val);
             })

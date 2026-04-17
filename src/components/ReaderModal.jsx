@@ -242,6 +242,21 @@ export default function ReaderModal() {
                             onContextMenu={e => { e.preventDefault(); setBlurred(true); setTimeout(() => setBlurred(false), 1500); }}
                         >
                             <canvas ref={canvasRef} className={`shadow-2xl rounded transition-all duration-300 ${blurred ? 'blur-xl select-none' : ''}`} style={{ userSelect: 'none', WebkitUserSelect: 'none' }} />
+                            {/* Watermark overlay */}
+                            <div className="absolute inset-0 pointer-events-none flex items-center justify-center rounded" style={{ zIndex: 1 }}>
+                                <div style={{
+                                    transform: 'rotate(-30deg)',
+                                    color: 'rgba(160,120,48,0.12)',
+                                    fontSize: '1.3rem',
+                                    fontWeight: '700',
+                                    letterSpacing: '0.15em',
+                                    whiteSpace: 'nowrap',
+                                    userSelect: 'none',
+                                    WebkitUserSelect: 'none',
+                                }}>
+                                    BookNook · Licensed Copy
+                                </div>
+                            </div>
                             {rendering && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-brand-dark/60 rounded">
                                     <div className="w-8 h-8 border-2 border-brand-gold border-t-transparent rounded-full animate-spin" />
